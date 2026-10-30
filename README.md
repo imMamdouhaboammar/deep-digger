@@ -15,6 +15,7 @@
 
 <p align="center">
   <a href="#executive-overview">Overview</a> •
+  <a href="#production-value--engineering-outcomes">Value</a> •
   <a href="#feature-matrix">Feature Matrix</a> •
   <a href="#quickstart">Quickstart</a> •
   <a href="#architecture">Architecture</a> •
@@ -33,6 +34,40 @@
 Difficult software defects invite premature pattern-matching: an AI agent or engineer spots the first plausible stack trace, applies a speculative patch that hides symptoms, and marks the incident resolved, only for the defect to recur under load or in production.
 
 **Deep Digger** (*Catch That Bug*) provides deterministic root-cause investigation for autonomous agents and engineering teams. It maintains competing causal hypotheses, mandates discriminating experiments that actively attempt falsification, preserves failed test runs, and validates root causes through four-phase counterfactual verification ($A \to B \to A \to C$).
+
+---
+
+## Production Value & Engineering Outcomes
+
+### 1. Eliminate Speculative AI Hallucinations
+When autonomous coding agents tackle complex regressions, their baseline tendency is symptom-masking (such as increasing timeouts or patching types without addressing state corruption). Deep Digger bounds agent execution behind the four-phase verification contract ($A \to B \to A \to C$). No patch is accepted without reproducible evidence of failure, elimination of failure, reinstatement upon rollback, and resistance to negative controls.
+
+### 2. Algorithmic Input Minimization in Seconds
+Rather than spending hours manually bisecting a 50,000-line crash JSON payload or API trace, Deep Digger's zero-dependency minimizer (`--granularity tokens`) executes Zeller's delta debugging algorithm to shrink failing inputs down to the exact atomic tokens causing the fault, providing an instant minimal reproduction fixture.
+
+### 3. Statistical Rejection of Flaky Tests
+Non-deterministic defects (race conditions, network jitter, clock skew) frequently produce false-positive green runs. The built-in empirical oracle computes $P(\text{FAIL})$ across repeated executions in isolated environments, preventing tickets or pull requests from closing on accidental passes.
+
+### 4. Autonomous Git Regression Bisection
+Pinpoint breaking commits across release boundaries without manual checkouts. Deep Digger coordinates non-interactive `git bisect run` workflows against test oracles, committing culprit commit hashes, authors, and timestamps directly into a tamper-evident evidence ledger.
+
+### 5. Publication-Ready Incident Dossiers
+Generate self-contained HTML5 diagnostic reports with a single command (`deep-digger report --html dossier.html`). The resulting document embeds SVG causal DAGs, SHA-256 evidence ledgers, and reproduction scripts with zero external CDN dependencies, fully functional in air-gapped environments.
+
+### 6. Cryptographic Audit Drift Detection
+Guarantee that investigated telemetry logs, configuration files, and codebases remain untampered. Deep Digger monitors SHA-256 fingerprints across the investigation lifecycle, immediately failing closed if referenced source files mutate out-of-band.
+
+---
+
+## Engineering Impact Comparison
+
+| Operational Challenge | Without Deep Digger | With Deep Digger |
+|---|---|---|
+| **Complex Intermittent Bug** | Speculative edits in PRs, guessing from stack traces | Competing causal hypotheses verified via discriminating experiments |
+| **Massive Failing Input** | Hours spent manually deleting lines from payloads | Algorithmic token-level reduction to minimal failing syntax in seconds |
+| **Flaky Test Suite** | Retrying builds until they happen to turn green | Empirical $P(\text{FAIL})$ calculation with strict non-determinism classification |
+| **Multi-Commit Regression** | Manual commit archaeology and git checkout jumping | Non-interactive automated bisect logging culprit metadata to ledger |
+| **Post-Mortem Documentation** | Vague retrospective notes without reproducible proofs | Cryptographically signed HTML dossier with embedded causal DAG |
 
 ---
 
