@@ -1,0 +1,56 @@
+{
+  "name": "deep-digger",
+  "version": "1.0.0",
+  "description": "Catch that bug: Evidence-gated root cause investigation & controlled falsification for AI agents",
+  "type": "module",
+  "main": "bin/cli.js",
+  "bin": {
+    "deep-digger": "./bin/cli.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/imMamdouhaboammar/deep-digger.git"
+  },
+  "files": [
+    "bin",
+    "scripts",
+    "references",
+    "rust",
+    "evals",
+    "usecases",
+    "agents",
+    "assets",
+    "SKILL.md",
+    "marketplace.json",
+    ".skills.json",
+    "install.sh",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "start": "bun bin/cli.js",
+    "doctor": "bun bin/cli.js doctor",
+    "test": "bun bin/cli.js doctor && python3 -m unittest discover -s evals -p 'test_cli.py' -v && cargo test --manifest-path rust/Cargo.toml"
+  },
+  "keywords": [
+    "agent-skill",
+    "debugging",
+    "root-cause-analysis",
+    "falsification",
+    "delta-debugging",
+    "skills.sh",
+    "claude-code",
+    "cursor",
+    "codex",
+    "gemini",
+    "antigravity",
+    "bun"
+  ],
+  "author": "Mamdouh Aboammar <https://github.com/imMamdouhaboammar>",
+  "license": "MIT",
+  "engines": {
+    "bun": ">=1.0.0",
+    "node": ">=18.0.0"
+  },
+  "generator": "Omni Skill (https://github.com/imMamdouhaboammar/omni-skill)"
+}
