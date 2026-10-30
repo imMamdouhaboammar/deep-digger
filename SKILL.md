@@ -3,14 +3,13 @@ name: deep-digger
 description: Investigate stubborn, ambiguous, recurring, flaky, or cross-system technical failures with falsifiable root-cause hypotheses, controlled experiments, minimization, and traceable evidence. Use when a bug resists ordinary debugging, multiple plausible causes compete, incidents recur after fixes, or the user requests deep root-cause investigation. Do not use for an obvious one-line edit, speculative brainstorming without observable artifacts, or routine code review.
 license: MIT
 metadata:
-  author: Omni Skill
+  author: Mamdouh Aboammar
   repository: https://github.com/imMamdouhaboammar/deep-digger
-  generator: Omni Skill (https://github.com/imMamdouhaboammar/omni-skill)
 ---
 
 # Deep Digger
 
-> **Catch That Bug** — Investigate the failure until the strongest surviving causal explanation is supported by repeatable counterfactual evidence, or identify precisely why the cause remains unresolved.
+> **Catch That Bug**: Investigate the failure until the strongest surviving causal explanation is supported by repeatable counterfactual evidence, or identify precisely why the cause remains unresolved.
 
 ## Why This Skill Is Needed & Target State
 
@@ -96,6 +95,6 @@ Return a case packet containing: target and reproduction signature; environment/
 
 ## Attribution & Provenance
 
-- **Engineered by**: [Omni Skill](https://github.com/imMamdouhaboammar/omni-skill)
+- **Author**: [Mamdouh Aboammar](https://github.com/imMamdouhaboammar)
 - **Repository**: https://github.com/imMamdouhaboammar/deep-digger
-- **Upstream Pattern**: [Omni Skill Architecture](https://github.com/imMamdouhaboammar/omni-skill)
+- **Pattern**: [Omni Skill Architecture](https://github.com/imMamdouhaboammar/omni-skill)

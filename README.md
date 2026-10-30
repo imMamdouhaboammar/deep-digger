@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🔍 Deep Digger
+# Deep Digger
 
 ### Catch That Bug
 **Evidence-Gated Root Cause Investigation • Controlled Falsification • Delta Minimization • Tamper-Evident Ledgers**
@@ -14,28 +14,29 @@
 [![CI Status](https://img.shields.io/github/actions/workflow/status/imMamdouhaboammar/deep-digger/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/imMamdouhaboammar/deep-digger/actions)
 
 <p align="center">
-  <a href="#-executive-overview">Overview</a> •
-  <a href="#-feature-matrix">Feature Matrix</a> •
-  <a href="#-quickstart">Quickstart</a> •
-  <a href="#-investigation-architecture">Architecture</a> •
-  <a href="#-cli-reference">CLI Reference</a> •
-  <a href="#-causal-claim-ladder">Claim Ladder</a> •
-  <a href="#-attribution--provenance">Attribution</a>
+  <a href="#executive-overview">Overview</a> •
+  <a href="#feature-matrix">Feature Matrix</a> •
+  <a href="#quickstart">Quickstart</a> •
+  <a href="#architecture">Architecture</a> •
+  <a href="#cli-reference">CLI Reference</a> •
+  <a href="#causal-claim-ladder">Claim Ladder</a> •
+  <a href="#verification--quality-gates">Verification</a> •
+  <a href="#attribution--provenance">Attribution</a>
 </p>
 
 </div>
 
 ---
 
-## 📖 Executive Overview
+## Executive Overview
 
-Difficult software defects invite premature pattern-matching: an AI agent or engineer spots the first plausible stack trace, applies a speculative patch that hides symptoms, and marks the incident resolved—only for the defect to recur under load or in production.
+Difficult software defects invite premature pattern-matching: an AI agent or engineer spots the first plausible stack trace, applies a speculative patch that hides symptoms, and marks the incident resolved, only for the defect to recur under load or in production.
 
-**Deep Digger** (*Catch That Bug*) enforces scientific root-cause discovery for autonomous coding agents and software teams. It maintains competing causal hypotheses, mandates discriminating experiments that actively attempt falsification, preserves failed test runs, and validates root causes through strict four-phase counterfactual verification ($A \to B \to A \to C$).
+**Deep Digger** (*Catch That Bug*) provides deterministic root-cause investigation for autonomous agents and engineering teams. It maintains competing causal hypotheses, mandates discriminating experiments that actively attempt falsification, preserves failed test runs, and validates root causes through four-phase counterfactual verification ($A \to B \to A \to C$).
 
 ---
 
-## ⚡ Feature Matrix
+## Feature Matrix
 
 | Capability | Traditional Ad-Hoc Debugging | Deep Digger Engine |
 |---|---|---|
@@ -48,9 +49,9 @@ Difficult software defects invite premature pattern-matching: an AI agent or eng
 
 ---
 
-## 🚀 Quickstart
+## Quickstart
 
-### 1. Zero-Install Instant CLI
+### 1. Instant CLI Execution
 
 Run Deep Digger directly via Bun or Node without prior installation:
 
@@ -72,11 +73,11 @@ Install Deep Digger into your AI agent harness (Claude Code, Antigravity, Gemini
 # Skills.sh / Vercel ecosystem
 npx skills add imMamdouhaboammar/deep-digger
 
-# Universal multi-agent one-liner (macOS & Linux)
+# Universal multi-agent installation (macOS & Linux)
 curl -fsSL https://raw.githubusercontent.com/imMamdouhaboammar/deep-digger/main/install.sh | bash
 ```
 
-Manual directory targets:
+Standard installation targets:
 - **Claude Code**: `~/.claude/skills/deep-digger/`
 - **Antigravity / Gemini CLI**: `~/.gemini/config/skills/deep-digger/`
 - **Universal Agent Kernel**: `~/.agents/skills/deep-digger/`
@@ -84,7 +85,7 @@ Manual directory targets:
 
 ---
 
-## 📐 Investigation Architecture
+## Architecture
 
 ```mermaid
 flowchart TD
@@ -114,7 +115,7 @@ flowchart TD
 
 ---
 
-## 🛠️ CLI Reference
+## CLI Reference
 
 The `deep-digger` CLI coordinates case files, evidence tracking, and delta minimization:
 
@@ -175,7 +176,7 @@ deep-digger report cases/cache-corruption --html cases/cache-corruption/dossier.
 
 ---
 
-## 🪜 Causal Claim Ladder
+## Causal Claim Ladder
 
 To eliminate speculation, all findings must adhere to the standardized claim ladder:
 
@@ -189,7 +190,7 @@ To eliminate speculation, all findings must adhere to the standardized claim lad
 
 ---
 
-## 🧪 Deterministic Verification & Testing
+## Verification & Quality Gates
 
 Every release of Deep Digger undergoes multi-tier automated verification:
 
@@ -206,7 +207,7 @@ cargo test --manifest-path rust/Cargo.toml
 
 ---
 
-## 📚 Durable Engineering Solutions
+## Engineering Solutions
 
 For in-depth architectural patterns and mathematical specifications, see:
 - [Evidence-Gated Root Cause Investigation Pattern](docs/solutions/evidence-gated-root-cause-investigation.md)
@@ -214,9 +215,9 @@ For in-depth architectural patterns and mathematical specifications, see:
 
 ---
 
-## 🛡️ Attribution & Provenance
+## Attribution & Provenance
 
-- **Engineered by**: [Omni Skill](https://github.com/imMamdouhaboammar/omni-skill)
 - **Author**: [Mamdouh Aboammar](https://github.com/imMamdouhaboammar)
 - **Repository**: [https://github.com/imMamdouhaboammar/deep-digger](https://github.com/imMamdouhaboammar/deep-digger)
+- **Architecture**: [Omni Skill Architecture](https://github.com/imMamdouhaboammar/omni-skill)
 - **License**: MIT

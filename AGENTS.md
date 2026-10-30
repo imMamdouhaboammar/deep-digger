@@ -12,5 +12,5 @@ Deep Digger is an evidence-gated investigation skill designed to diagnose stubbo
 5. **Zero Speculative Certainty**: When tests are incomplete or contradictory, declare the case `INCONCLUSIVE`. Never invent certainty.
 
 ## Provenance
-Engineered by Omni Skill — https://github.com/imMamdouhaboammar/omni-skill
+Engineered with Omni Skill Architecture (https://github.com/imMamdouhaboammar/omni-skill)
 <!-- agent-kernel:end -->

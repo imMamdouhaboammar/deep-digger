@@ -631,7 +631,7 @@ def generate_html_report(result: dict) -> str:
 <body>
     <div class="container">
         <header>
-            <h1>🔍 Deep Digger Diagnostic Dossier</h1>
+            <h1>Deep Digger Diagnostic Dossier</h1>
             <div class="meta">
                 <strong>Case:</strong> {title} | <strong>ID:</strong> {case_id} | <strong>Symptom:</strong> {symptom}
             </div>
