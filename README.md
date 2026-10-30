@@ -105,18 +105,20 @@ npx deep-digger init cases/incident-01
 Install Deep Digger into your AI agent harness (Claude Code, Antigravity, Gemini CLI, Cursor, Codex, OpenCode):
 
 ```bash
-# Skills.sh / Vercel ecosystem
-npx skills add imMamdouhaboammar/deep-digger
+# npm / Bun package manager (Global CLI & automatic agent skill registration)
+npm install -g deep-digger
+# or
+bun add -g deep-digger
 
-# Universal multi-agent installation (macOS & Linux)
-curl -fsSL https://raw.githubusercontent.com/imMamdouhaboammar/deep-digger/main/install.sh | bash
+# Skills.sh registry (Universal AI Agent Skill)
+npx skills add imMamdouhaboammar/deep-digger
 ```
 
-Standard installation targets:
-- **Claude Code**: `~/.claude/skills/deep-digger/`
-- **Antigravity / Gemini CLI**: `~/.gemini/config/skills/deep-digger/`
-- **Universal Agent Kernel**: `~/.agents/skills/deep-digger/`
-- **Project Local**: `.agents/skills/deep-digger/`
+Standard installation targets supported:
+- **Claude Code**: Registered in agent skills catalog
+- **Antigravity / Gemini CLI**: Registered in agent configuration
+- **Universal Agent Kernel**: Registered in multi-agent kernel
+- **Project Local**: Registered in project repository
 
 ---
 

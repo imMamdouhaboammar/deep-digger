@@ -8,7 +8,9 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const rootDir = join(__dirname, '..');
-const pythonScript = join(rootDir, 'scripts', 'deep_digger.py');
+const pythonScript = existsSync(join(__dirname, 'scripts', 'deep_digger.py'))
+  ? join(__dirname, 'scripts', 'deep_digger.py')
+  : join(rootDir, 'scripts', 'deep_digger.py');
 
 const VERSION = '1.1.0';
 
@@ -72,7 +74,11 @@ async function runDoctor() {
     },
     {
       name: 'Deep Digger Skill Definition',
-      check: () => (existsSync(join(rootDir, 'SKILL.md')) ? 'Valid (SKILL.md)' : null),
+      check: () => {
+        if (existsSync(join(__dirname, 'SKILL.md'))) return 'Valid (SKILL.md)';
+        if (existsSync(join(rootDir, 'SKILL.md'))) return 'Valid (SKILL.md)';
+        return null;
+      },
       required: true,
     },
   ];
