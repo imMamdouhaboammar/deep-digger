@@ -149,14 +149,24 @@ deep-digger experiment cases/cache-corruption add H1 intervention \
   --oracle "npm test -- tests/cache.test.ts" \
   --allow-exec --repeat 2
 
-# 8. Delta-debug minimal failing payload
+# 8. Automated git bisect recorded into evidence ledger
+deep-digger bisect cases/cache-corruption --hypothesis H1 \
+  --good v1.2.0 --bad v1.3.0 \
+  --oracle "npm test -- tests/cache.test.ts" \
+  --allow-exec
+
+# 9. Generate isolated test harness reproducer (python, node, bash)
+deep-digger repro cases/cache-corruption --template python
+
+# 10. Delta-debug minimal failing payload
 deep-digger minimize ./payload.json \
   --oracle "python3 test_oracle.py" \
   --output ./minimal.json \
   --allow-exec
 
-# 9. Generate causal status report
+# 11. Generate causal status report (text, json, or standalone HTML dossier)
 deep-digger report cases/cache-corruption --format text
+deep-digger report cases/cache-corruption --html cases/cache-corruption/dossier.html
 ```
 
 ---
@@ -183,7 +193,7 @@ Every release of Deep Digger undergoes multi-tier automated verification:
 # Verify system dependencies
 bun bin/cli.js doctor
 
-# Execute Python test suite (18 unit test cases)
+# Execute Python test suite (20 unit test cases)
 python3 -m unittest discover -s evals -p 'test_cli.py' -v
 
 # Execute Rust test suite (Unit & Integration)

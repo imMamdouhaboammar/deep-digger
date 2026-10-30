@@ -448,6 +448,357 @@ def cmd_flake(args) -> None:
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
+def generate_html_report(result: dict) -> str:
+    title = result.get("title", "Investigation Case")
+    symptom = result.get("symptom", "N/A")
+    case_id = result.get("case_id", "N/A")
+    hypotheses = result.get("hypotheses", [])
+    causal_links = result.get("causal_links", [])
+    experiments = result.get("experiments", [])
+    evidence = result.get("evidence", [])
+
+    status_colors = {
+        "experimental-pattern": "#10b981",
+        "reproduced": "#3b82f6",
+        "unverified": "#f59e0b",
+        "inconclusive": "#ef4444"
+    }
+
+    cards_html = []
+    for h in hypotheses:
+        color = status_colors.get(h["status"], "#6b7280")
+        missing_items = "".join(f"<li>{r}</li>" for r in (h["missing_gates"] + h["conflicts"])) or "<li>None (All criteria met)</li>"
+        ev_items = ", ".join(h["supporting_evidence"] + h["refuting_evidence"]) or "None"
+        cards_html.append(f"""
+        <div class="card">
+            <div class="card-header">
+                <h3>{h["id"]}: {h["claim"]}</h3>
+                <span class="badge" style="background-color: {color};">{h["status"].upper()}</span>
+            </div>
+            <p><strong>Discriminating Test:</strong> <code>{h["discriminating_test"]}</code></p>
+            <p><strong>Gate Status:</strong></p>
+            <ul>{missing_items}</ul>
+            <p><strong>Attached Evidence:</strong> {ev_items}</p>
+        </div>
+        """)
+
+    exp_rows = []
+    for exp in experiments:
+        outcomes_badges = " ".join(f'<span class="badge" style="background: {"#10b981" if o=="PASS" else "#ef4444" if o=="FAIL" else "#f59e0b"};">{o}</span>' for o in exp["outcomes"])
+        exp_rows.append(f"""
+        <tr>
+            <td><code>{exp["id"]}</code></td>
+            <td><code>{exp["hypothesis"]}</code></td>
+            <td><strong>{exp["phase"]}</strong></td>
+            <td>{outcomes_badges}</td>
+            <td><code>{exp["time"]}</code></td>
+        </tr>
+        """)
+
+    ev_rows = []
+    for ev in evidence:
+        effect_color = "#10b981" if ev["effect"] == "supports" else "#ef4444" if ev["effect"] == "refutes" else "#6b7280"
+        ev_rows.append(f"""
+        <tr>
+            <td><code>{ev["id"]}</code></td>
+            <td><code>{ev["hypothesis"]}</code></td>
+            <td><span class="badge" style="background: {effect_color};">{ev["effect"]}</span></td>
+            <td>{ev["kind"]}</td>
+            <td>{ev["note"]}</td>
+            <td><code>{ev["sha256"][:12] if ev["sha256"] else "N/A"}...</code></td>
+        </tr>
+        """)
+
+    svg_elements = []
+    if causal_links or hypotheses:
+        node_coords = {}
+        for idx, h in enumerate(hypotheses):
+            cx = 100 + (idx % 3) * 220
+            cy = 80 + (idx // 3) * 120
+            node_coords[h["id"]] = (cx, cy)
+            color = status_colors.get(h["status"], "#6b7280")
+            svg_elements.append(f"""
+            <g class="dag-node">
+                <circle cx="{cx}" cy="{cy}" r="32" fill="#1e293b" stroke="{color}" stroke-width="3"/>
+                <text x="{cx}" y="{cy + 5}" text-anchor="middle" fill="#f8fafc" font-size="12" font-family="monospace">{h["id"]}</text>
+            </g>
+            """)
+        for link in causal_links:
+            p = link.get("parent")
+            c = link.get("child")
+            if p in node_coords and c in node_coords:
+                x1, y1 = node_coords[p]
+                x2, y2 = node_coords[c]
+                svg_elements.append(f"""
+                <line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+                <text x="{(x1+x2)/2}" y="{(y1+y2)/2 - 8}" fill="#94a3b8" font-size="10" text-anchor="middle">{link.get("relation", "")}</text>
+                """)
+
+    svg_content = f"""
+    <svg width="100%" height="260" viewBox="0 0 700 260" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="28" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b" />
+            </marker>
+        </defs>
+        {"".join(svg_elements)}
+    </svg>
+    """ if svg_elements else "<p>No causal links defined yet.</p>"
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deep Digger: {title}</title>
+    <style>
+        :root {{
+            --bg: #0f172a;
+            --surface: #1e293b;
+            --border: #334155;
+            --text: #f8fafc;
+            --muted: #94a3b8;
+            --primary: #38bdf8;
+        }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 24px;
+            line-height: 1.5;
+        }}
+        .container {{ max-width: 1000px; margin: 0 auto; }}
+        header {{
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 16px;
+            margin-bottom: 24px;
+        }}
+        h1 {{ margin: 0 0 8px 0; font-size: 26px; color: var(--primary); }}
+        .meta {{ color: var(--muted); font-size: 14px; }}
+        .badge {{
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 700;
+            color: #fff;
+            text-transform: uppercase;
+        }}
+        .card {{
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }}
+        .card-header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 8px;
+            margin-bottom: 12px;
+        }}
+        .card-header h3 {{ margin: 0; font-size: 18px; }}
+        code {{
+            background: #090d16;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 13px;
+        }}
+        table {{
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+            background: var(--surface);
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }}
+        th, td {{
+            padding: 10px 14px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+            font-size: 14px;
+        }}
+        th {{ background: #162032; color: var(--muted); font-weight: 600; }}
+        ul {{ margin: 4px 0; padding-left: 20px; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔍 Deep Digger Diagnostic Dossier</h1>
+            <div class="meta">
+                <strong>Case:</strong> {title} | <strong>ID:</strong> {case_id} | <strong>Symptom:</strong> {symptom}
+            </div>
+        </header>
+
+        <h2>Hypotheses & Causal Status</h2>
+        {"".join(cards_html) if cards_html else "<p>No hypotheses registered.</p>"}
+
+        <h2>Causal Graph (DAG)</h2>
+        <div class="card">{svg_content}</div>
+
+        <h2>Counterfactual Experiment Receipts</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Experiment ID</th>
+                    <th>Hypothesis</th>
+                    <th>Phase</th>
+                    <th>Verdicts</th>
+                    <th>Timestamp (UTC)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {"".join(exp_rows) if exp_rows else "<tr><td colspan='5'>No experiments recorded yet.</td></tr>"}
+            </tbody>
+        </table>
+
+        <h2>Tamper-Evident Evidence Ledger</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Hypothesis</th>
+                    <th>Effect</th>
+                    <th>Kind</th>
+                    <th>Note</th>
+                    <th>SHA-256</th>
+                </tr>
+            </thead>
+            <tbody>
+                {"".join(ev_rows) if ev_rows else "<tr><td colspan='6'>No evidence attached yet.</td></tr>"}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
+"""
+
+
+def cmd_repro(args) -> None:
+    data = read_case(args.folder)
+    folder = Path(args.folder)
+    ext = "py" if args.template == "python" else "js" if args.template == "node" else "sh"
+    repro_file = folder / f"repro_{args.template}.{ext}"
+    if repro_file.exists():
+        raise ValueError(f"reproducer file already exists: {repro_file}")
+
+    if args.template == "python":
+        content = f'''#!/usr/bin/env python3
+"""Deep Digger Isolated Reproducer
+Case ID: {data["id"]}
+Title: {data["title"]}
+Symptom: {data["symptom"]}
+"""
+import sys
+
+def run_reproduction():
+    # Insert minimal reproduction code triggering the defect
+    raise NotImplementedError("Implement minimal failure condition")
+
+if __name__ == "__main__":
+    try:
+        run_reproduction()
+        sys.exit(0) # PASS
+    except Exception as exc:
+        print(f"Reproduction triggered: {{exc}}", file=sys.stderr)
+        sys.exit(1) # FAIL
+'''
+    elif args.template == "node":
+        content = f'''#!/usr/bin/env node
+/**
+ * Deep Digger Isolated Reproducer
+ * Case ID: {data["id"]}
+ * Title: {data["title"]}
+ * Symptom: {data["symptom"]}
+ */
+
+function runReproduction() {{
+  // Insert minimal reproduction code triggering the defect
+  throw new Error("Implement minimal failure condition");
+}}
+
+try {{
+  runReproduction();
+  process.exit(0); // PASS
+}} catch (err) {{
+  console.error("Reproduction triggered:", err.message);
+  process.exit(1); // FAIL
+}}
+'''
+    else:
+        content = f'''#!/usr/bin/env bash
+# Deep Digger Isolated Reproducer
+# Case ID: {data["id"]}
+# Title: {data["title"]}
+# Symptom: {data["symptom"]}
+set -euo pipefail
+
+echo "Running reproduction..."
+exit 1
+'''
+    repro_file.write_text(content, encoding="utf-8")
+    if args.template == "bash":
+        os.chmod(repro_file, 0o755)
+    print(json.dumps({"reproducer": str(repro_file), "template": args.template}))
+
+
+def cmd_bisect(args) -> None:
+    if not args.allow_exec:
+        raise ValueError("bisect execution requires --allow-exec")
+    validate_timeout(args.timeout)
+    data = read_case(args.folder)
+    require_hypothesis(data, args.hypothesis)
+    argv = normalize_command(args.command)
+
+    try:
+        subprocess.run(["git", "rev-parse", "--is-inside-work-tree"], check=True, capture_output=True)
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        raise ValueError("current directory is not inside a git repository")
+
+    start_cmd = ["git", "bisect", "start", args.bad, args.good]
+    p_start = subprocess.run(start_cmd, capture_output=True, text=True)
+    if p_start.returncode != 0:
+        raise ValueError(f"git bisect start failed: {p_start.stderr.strip()}")
+
+    bisect_run_cmd = ["git", "bisect", "run"] + argv
+    p_run = subprocess.run(bisect_run_cmd, capture_output=True, text=True, timeout=args.timeout)
+    output_text = p_run.stdout + "\n" + p_run.stderr
+    culprit = None
+    for line in output_text.splitlines():
+        if "is the first bad commit" in line:
+            culprit = line.split()[0]
+            break
+
+    subprocess.run(["git", "bisect", "reset"], capture_output=True)
+    result = {
+        "hypothesis": args.hypothesis,
+        "good_revision": args.good,
+        "bad_revision": args.bad,
+        "culprit_commit": culprit,
+        "time": utc_now()
+    }
+    record = {
+        "id": f"E-{len(data['evidence']) + 1}",
+        "hypothesis": args.hypothesis,
+        "kind": "observation",
+        "effect": "supports" if culprit else "neutral",
+        "note": f"Git bisect: first bad commit is {culprit or 'unresolved'}",
+        "source": None,
+        "sha256": None,
+        "created_at": utc_now(),
+        "bisect_metadata": result
+    }
+    data["evidence"].append(record)
+    save_case(args.folder, data)
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+
+
 def cmd_report(args) -> None:
     data = read_case(args.folder)
     result = {"title": data["title"], "symptom": data["symptom"], "case_id": data["id"],
@@ -456,6 +807,12 @@ def cmd_report(args) -> None:
               "experiment_count": len(data["experiments"]),
               "evidence_count": len(data["evidence"]),
               "evidence": data["evidence"], "experiments": data["experiments"]}
+    if getattr(args, "html", None):
+        html_doc = generate_html_report(result)
+        out_path = Path(args.html)
+        out_path.write_text(html_doc, encoding="utf-8")
+        print(json.dumps({"html_report": str(out_path), "status": "generated"}))
+        return
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return
@@ -580,11 +937,24 @@ def build_parser() -> argparse.ArgumentParser:
     exp.set_defaults(func=cmd_experiment)
     rep = sub.add_parser("report", help="Print evidence and causal gates")
     rep.add_argument("folder"); rep.add_argument("--json", action="store_true")
+    rep.add_argument("--html", help="Path to generate standalone HTML report")
     rep.set_defaults(func=cmd_report)
     nxt = sub.add_parser("next", help="Return next discriminating or verification step")
     nxt.add_argument("folder"); nxt.set_defaults(func=cmd_next)
     audit = sub.add_parser("audit", help="Check current source hashes against captured evidence")
     audit.add_argument("folder"); audit.set_defaults(func=cmd_audit)
+    repro = sub.add_parser("repro", help="Generate an isolated reproduction harness template")
+    repro.add_argument("folder")
+    repro.add_argument("--template", choices=("python", "node", "bash"), default="python")
+    repro.set_defaults(func=cmd_repro)
+    bis = sub.add_parser("bisect", help="Run automated git bisect and record regression culprit into ledger")
+    bis.add_argument("folder")
+    bis.add_argument("--hypothesis", required=True)
+    bis.add_argument("--good", required=True)
+    bis.add_argument("--bad", required=True)
+    bis.add_argument("--timeout", type=float, default=60)
+    bis.add_argument("--allow-exec", action="store_true")
+    bis.set_defaults(func=cmd_bisect)
     mini = sub.add_parser("minimize", help="Reduce a stable failing text input using an oracle")
     mini.add_argument("--input", required=True); mini.add_argument("--output", required=True)
     mini.add_argument("--repeats", type=int, default=3); mini.add_argument("--max-tests", type=int, default=200)
@@ -615,7 +985,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     try:
         original = list(sys.argv[1:] if argv is None else argv)
-        if original and original[0] in {"experiment", "minimize", "flake"}:
+        if original and original[0] in {"experiment", "minimize", "flake", "bisect"}:
             if "--" not in original:
                 raise ValueError("a command must follow the -- delimiter")
             cut = original.index("--")

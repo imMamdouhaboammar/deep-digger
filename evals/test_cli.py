@@ -3,6 +3,7 @@ import contextlib
 import io
 import json
 from pathlib import Path
+import os
 import sys
 import tempfile
 import unittest
@@ -204,6 +205,31 @@ class CliTests(unittest.TestCase):
         result = json.loads(out)
         self.assertEqual(0.0, result["empirical_failure_rate"])
         self.assertEqual("ZERO_FAILURE", result["classification"])
+
+    def test_repro_command_generates_template(self):
+        rc, out = invoke("repro", str(self.case), "--template", "python")
+        self.assertEqual(0, rc)
+        py_file = Path(json.loads(out)["reproducer"])
+        self.assertTrue(py_file.is_file())
+        self.assertIn("Broken total", py_file.read_text(encoding="utf-8"))
+
+        rc, out_bash = invoke("repro", str(self.case), "--template", "bash")
+        self.assertEqual(0, rc)
+        sh_file = Path(json.loads(out_bash)["reproducer"])
+        self.assertTrue(sh_file.is_file())
+        self.assertTrue(os.access(sh_file, os.X_OK))
+
+    def test_html_report_generation(self):
+        _, out = invoke("hypothesis", str(self.case), "--claim", "css collision", "--test", "inspect dom")
+        html_out = self.root / "dossier.html"
+        rc, out = invoke("report", str(self.case), "--html", str(html_out))
+        self.assertEqual(0, rc)
+        self.assertTrue(html_out.is_file())
+        content = html_out.read_text(encoding="utf-8")
+        self.assertIn("<!DOCTYPE html>", content)
+        self.assertIn("Deep Digger Diagnostic Dossier", content)
+        self.assertIn("Broken total", content)
+        self.assertIn("<svg", content)
 
 
 if __name__ == "__main__":

@@ -28,8 +28,10 @@ Commands:
   trace <folder> --file <f> ... Ingest OpenTelemetry, HAR, or JSON trace into evidence ledger
   link <folder> --parent <p>    Model directed causal relationships (DAG) with cycle prevention
   flake <folder> --oracle <cmd> Statistical repetition oracle to compute empirical P(FAIL)
+  bisect <folder> --oracle ...  Automated git bisect runner recorded into evidence ledger
+  repro <folder> --template ... Generate isolated test harness fixture (python, node, bash)
   minimize <input> --oracle ... Delta-debugging minimizer for failing inputs
-  report <folder>               Generate causal claim ladder report (text/json)
+  report <folder> [--html <f>]  Generate causal claim ladder report (text, json, or html)
   doctor                        Verify environment dependencies (Python, Cargo, Bun)
   version                       Show current version
 
