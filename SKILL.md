@@ -38,7 +38,9 @@ The target state is an inspectable case packet with a reproducible failure signa
 ## Execution Workflows
 
 - [Investigate a deep failure](usecases/investigate.md): Evidence-gated autonomous investigation loop, experiment design, and outputs.
-- [Use deterministic tools](usecases/run-tools.md): Python case ledger, repeatable commands, delta debugging, optional Rust runner, and safety boundaries.
+- [Use deterministic tools](usecases/run-tools.md): Python case ledger, repeatable commands, delta debugging, trace analysis, causal DAG linking, flake estimation, and safety boundaries.
+- [J-Space Cognitive Architecture](references/jspace-investigation.md): Inner workspace reasoning, capacity limits, marker events, and calibrated confidence tags.
+- [Fault Localization & Architecture](references/recon-and-architecture.md): Reverse-engineered comparative analysis, mathematical foundations of delta minimization, and causal DAG formalism.
 
 ### Dispatch by observed failure class
 

@@ -53,6 +53,8 @@ def read_case(folder: str) -> dict:
     data = json.loads(file.read_text(encoding="utf-8"))
     if data.get("schema_version") != 1:
         raise ValueError("unsupported case schema version")
+    if "causal_links" not in data:
+        data["causal_links"] = []
     return data
 
 
@@ -196,7 +198,7 @@ def cmd_init(args) -> None:
     folder.mkdir(parents=True, exist_ok=False)
     data = {"schema_version": 1, "id": str(uuid4()), "created_at": utc_now(),
             "title": args.title, "symptom": args.symptom,
-            "hypotheses": [], "evidence": [], "experiments": []}
+            "hypotheses": [], "evidence": [], "experiments": [], "causal_links": []}
     save_case(str(folder), data)
     print(json.dumps({"case": str(folder), "id": data["id"]}))
 
@@ -247,10 +249,210 @@ def cmd_experiment(args) -> None:
                       "outcomes": record["outcomes"]}))
 
 
+def analyze_trace_payload(data: any) -> dict:
+    spans = []
+    if isinstance(data, list):
+        spans = data
+    elif isinstance(data, dict):
+        if "spans" in data and isinstance(data["spans"], list):
+            spans = data["spans"]
+        elif "log" in data and isinstance(data["log"], dict) and "entries" in data["log"]:
+            entries = data["log"]["entries"]
+            failing = []
+            for entry in entries:
+                if isinstance(entry, dict):
+                    status = entry.get("response", {}).get("status", 0)
+                    if status >= 400:
+                        url = entry.get("request", {}).get("url", "unknown")
+                        failing.append({"name": url, "status": f"HTTP {status}", "time_ms": entry.get("time", 0)})
+            return {
+                "format": "HAR",
+                "total_items": len(entries),
+                "failing_count": len(failing),
+                "failing_items": failing,
+                "summary": f"{len(failing)} failing HTTP requests across {len(entries)} entries"
+            }
+        else:
+            spans = [data]
+
+    failing = []
+    for s in spans:
+        if not isinstance(s, dict):
+            continue
+        name = s.get("name") or s.get("operation_name") or s.get("title") or "span"
+        status = s.get("status", {})
+        status_code = ""
+        error_desc = ""
+        if isinstance(status, dict):
+            status_code = str(status.get("status_code") or status.get("code") or "")
+            error_desc = str(status.get("description") or status.get("message") or "")
+        elif isinstance(status, (str, int)):
+            status_code = str(status)
+
+        events = s.get("events", [])
+        exceptions = []
+        if isinstance(events, list):
+            for ev in events:
+                if isinstance(ev, dict) and ("exception" in str(ev.get("name", "")).lower() or "error" in str(ev.get("name", "")).lower()):
+                    attrs = ev.get("attributes", {})
+                    exc_type = attrs.get("exception.type") or attrs.get("type") or "Exception"
+                    exc_msg = attrs.get("exception.message") or attrs.get("message") or ""
+                    exceptions.append(f"{exc_type}: {exc_msg}".strip(": "))
+
+        is_error = (
+            status_code.upper() in {"ERROR", "2", "FAIL", "FAILED"} or
+            s.get("error") is True or
+            bool(exceptions)
+        )
+        if is_error:
+            failing.append({
+                "name": name,
+                "status": status_code or "ERROR",
+                "description": error_desc or (", ".join(exceptions) if exceptions else "Error in span")
+            })
+
+    return {
+        "format": "OpenTelemetry/SpanTrace",
+        "total_items": len(spans),
+        "failing_count": len(failing),
+        "failing_items": failing,
+        "summary": f"{len(failing)} error span(s) detected across {len(spans)} span(s)"
+    }
+
+
+def check_causal_cycle(links: list[dict], new_parent: str, new_child: str) -> None:
+    adj: dict[str, list[str]] = {}
+    for link in links:
+        adj.setdefault(link["parent"], []).append(link["child"])
+    adj.setdefault(new_parent, []).append(new_child)
+
+    visited = set()
+    rec_stack = set()
+
+    def dfs(node: str) -> bool:
+        visited.add(node)
+        rec_stack.add(node)
+        for neighbor in adj.get(node, []):
+            if neighbor not in visited:
+                if dfs(neighbor):
+                    return True
+            elif neighbor in rec_stack:
+                return True
+        rec_stack.remove(node)
+        return False
+
+    for node in list(adj.keys()):
+        if node not in visited:
+            if dfs(node):
+                raise ValueError(f"adding causal link {new_parent} -> {new_child} introduces a cycle")
+
+
+def cmd_trace(args) -> None:
+    data = read_case(args.folder)
+    require_hypothesis(data, args.hypothesis)
+    trace_path = Path(args.file).resolve()
+    if not trace_path.is_file():
+        raise ValueError(f"trace file not found: {trace_path}")
+    raw_content = trace_path.read_text(encoding="utf-8")
+    digest = sha256(trace_path)
+    try:
+        trace_data = json.loads(raw_content)
+    except json.JSONDecodeError as err:
+        raise ValueError(f"trace file is not valid JSON: {err}")
+    findings = analyze_trace_payload(trace_data)
+    record = {
+        "id": f"E-{len(data['evidence']) + 1}",
+        "hypothesis": args.hypothesis,
+        "kind": "observation",
+        "effect": "supports" if findings["failing_count"] > 0 else "neutral",
+        "note": f"Trace analysis: {findings['summary']}",
+        "source": str(trace_path),
+        "sha256": digest,
+        "created_at": utc_now(),
+        "trace_metadata": findings
+    }
+    data["evidence"].append(record)
+    save_case(args.folder, data)
+    print(json.dumps(record, ensure_ascii=False, indent=2))
+
+
+def cmd_link(args) -> None:
+    data = read_case(args.folder)
+    require_hypothesis(data, args.parent)
+    require_hypothesis(data, args.child)
+    if args.parent == args.child:
+        raise ValueError("cannot link hypothesis to itself")
+    if "causal_links" not in data:
+        data["causal_links"] = []
+    check_causal_cycle(data["causal_links"], args.parent, args.child)
+    link = {
+        "parent": args.parent,
+        "child": args.child,
+        "relation": args.relation,
+        "created_at": utc_now()
+    }
+    data["causal_links"].append(link)
+    save_case(args.folder, data)
+    print(json.dumps(link, ensure_ascii=False, indent=2))
+
+
+def cmd_flake(args) -> None:
+    if not args.allow_exec:
+        raise ValueError("flake evaluation runs commands; explicitly pass --allow-exec")
+    if not 3 <= args.repeats <= 100:
+        raise ValueError("repeats must be between 3 and 100")
+    validate_timeout(args.timeout)
+    data = read_case(args.folder)
+    require_hypothesis(data, args.hypothesis)
+    argv = normalize_command(args.command)
+    runs = [run_command(argv, args.timeout) for _ in range(args.repeats)]
+    fails = sum(1 for r in runs if r["verdict"] == "FAIL")
+    passes = sum(1 for r in runs if r["verdict"] == "PASS")
+    unresolved = sum(1 for r in runs if r["verdict"] == "UNRESOLVED")
+    failure_rate = fails / args.repeats
+
+    if failure_rate == 1.0:
+        classification = "DETERMINISTIC_FAILURE"
+    elif failure_rate == 0.0:
+        classification = "ZERO_FAILURE"
+    elif unresolved > 0:
+        classification = "UNSTABLE_ENVIRONMENT"
+    else:
+        classification = "INTERMITTENT_FLAKE"
+
+    result = {
+        "hypothesis": args.hypothesis,
+        "repeats": args.repeats,
+        "fails": fails,
+        "passes": passes,
+        "unresolved": unresolved,
+        "empirical_failure_rate": round(failure_rate, 4),
+        "classification": classification,
+        "command_sha256": fingerprint(json.dumps(argv, ensure_ascii=False).encode()),
+        "time": utc_now()
+    }
+
+    record = {
+        "id": f"E-{len(data['evidence']) + 1}",
+        "hypothesis": args.hypothesis,
+        "kind": "observation",
+        "effect": "supports" if failure_rate > 0 else "neutral",
+        "note": f"Flake analysis: {classification} (failure_rate={failure_rate:.1%}, runs={args.repeats})",
+        "source": None,
+        "sha256": None,
+        "created_at": utc_now(),
+        "flake_metrics": result
+    }
+    data["evidence"].append(record)
+    save_case(args.folder, data)
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+
+
 def cmd_report(args) -> None:
     data = read_case(args.folder)
     result = {"title": data["title"], "symptom": data["symptom"], "case_id": data["id"],
               "hypotheses": [{**h, **classify_case(data, h["id"])} for h in data["hypotheses"]],
+              "causal_links": data.get("causal_links", []),
               "experiment_count": len(data["experiments"]),
               "evidence_count": len(data["evidence"]),
               "evidence": data["evidence"], "experiments": data["experiments"]}
@@ -265,6 +467,11 @@ def cmd_report(args) -> None:
             print("- " + reason)
         print("Evidence: " + (", ".join(h["supporting_evidence"] + h["refuting_evidence"]) or "none"))
         print("\nConclusion is limited to the documented experimental scope.\n")
+    if data.get("causal_links"):
+        print("## Causal Dependency Graph\n")
+        for link in data["causal_links"]:
+            print(f"- {link['parent']} --[{link['relation']}]--> {link['child']}")
+        print()
     if data["experiments"]:
         print("## Experiment receipts\n")
         for experiment in data["experiments"]:
@@ -384,13 +591,31 @@ def build_parser() -> argparse.ArgumentParser:
     mini.add_argument("--timeout", type=float, default=15)
     mini.add_argument("--allow-exec", action="store_true")
     mini.set_defaults(func=cmd_minimize)
+    trc = sub.add_parser("trace", help="Ingest OpenTelemetry or JSON trace and attach diagnostic evidence")
+    trc.add_argument("folder")
+    trc.add_argument("--hypothesis", required=True)
+    trc.add_argument("--file", required=True)
+    trc.set_defaults(func=cmd_trace)
+    lnk = sub.add_parser("link", help="Model causal relations between hypotheses (DAG)")
+    lnk.add_argument("folder")
+    lnk.add_argument("--parent", required=True)
+    lnk.add_argument("--child", required=True)
+    lnk.add_argument("--relation", choices=("causes", "triggers", "enables"), default="causes")
+    lnk.set_defaults(func=cmd_link)
+    flk = sub.add_parser("flake", help="Statistical repetition oracle to detect flakiness and measure P(FAIL)")
+    flk.add_argument("folder")
+    flk.add_argument("--hypothesis", required=True)
+    flk.add_argument("--repeats", type=int, default=10)
+    flk.add_argument("--timeout", type=float, default=15)
+    flk.add_argument("--allow-exec", action="store_true")
+    flk.set_defaults(func=cmd_flake)
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     try:
         original = list(sys.argv[1:] if argv is None else argv)
-        if original and original[0] in {"experiment", "minimize"}:
+        if original and original[0] in {"experiment", "minimize", "flake"}:
             if "--" not in original:
                 raise ValueError("a command must follow the -- delimiter")
             cut = original.index("--")

@@ -25,6 +25,9 @@ Commands:
   hypothesis <folder> add ...   Register a falsifiable causal hypothesis
   evidence <folder> add ...     Register tamper-evident artifact evidence
   experiment <folder> add ...   Record controlled test receipts (baseline, intervention, reversal, control)
+  trace <folder> --file <f> ... Ingest OpenTelemetry, HAR, or JSON trace into evidence ledger
+  link <folder> --parent <p>    Model directed causal relationships (DAG) with cycle prevention
+  flake <folder> --oracle <cmd> Statistical repetition oracle to compute empirical P(FAIL)
   minimize <input> --oracle ... Delta-debugging minimizer for failing inputs
   report <folder>               Generate causal claim ladder report (text/json)
   doctor                        Verify environment dependencies (Python, Cargo, Bun)

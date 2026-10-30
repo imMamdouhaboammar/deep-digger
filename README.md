@@ -129,7 +129,18 @@ deep-digger hypothesis cases/cache-corruption add H2 "Eviction race during concu
 # 3. Attach verifiable evidence artifacts
 deep-digger evidence cases/cache-corruption add E1 logs/failing-trace.log supports H1
 
-# 4. Record controlled experiments (requires explicit --allow-exec)
+# 4. Ingest OpenTelemetry, HAR, or JSON traces
+deep-digger trace cases/cache-corruption --hypothesis H1 --file traces/otel-span.json
+
+# 5. Link causal relations into a directed acyclic graph (DAG)
+deep-digger link cases/cache-corruption --parent H1 --child H2 --relation causes
+
+# 6. Evaluate empirical flakiness and measure P(FAIL)
+deep-digger flake cases/cache-corruption --hypothesis H1 \
+  --oracle "npm test -- tests/cache.test.ts" \
+  --repeats 10 --allow-exec
+
+# 7. Record controlled experiments (requires explicit --allow-exec)
 deep-digger experiment cases/cache-corruption add H1 baseline \
   --oracle "npm test -- tests/cache.test.ts" \
   --allow-exec --repeat 2
@@ -138,13 +149,13 @@ deep-digger experiment cases/cache-corruption add H1 intervention \
   --oracle "npm test -- tests/cache.test.ts" \
   --allow-exec --repeat 2
 
-# 5. Delta-debug minimal failing payload
+# 8. Delta-debug minimal failing payload
 deep-digger minimize ./payload.json \
   --oracle "python3 test_oracle.py" \
   --output ./minimal.json \
   --allow-exec
 
-# 6. Generate causal status report
+# 9. Generate causal status report
 deep-digger report cases/cache-corruption --format text
 ```
 
@@ -172,7 +183,7 @@ Every release of Deep Digger undergoes multi-tier automated verification:
 # Verify system dependencies
 bun bin/cli.js doctor
 
-# Execute Python test suite (15 unit test cases)
+# Execute Python test suite (18 unit test cases)
 python3 -m unittest discover -s evals -p 'test_cli.py' -v
 
 # Execute Rust test suite (Unit & Integration)

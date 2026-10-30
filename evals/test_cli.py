@@ -162,6 +162,49 @@ class CliTests(unittest.TestCase):
                                     "--repeats", "2", "--allow-exec", "--", sys.executable, str(oracle), "{input}")[0])
         self.assertFalse(dest.exists())
 
+    def test_trace_ingestion_records_evidence(self):
+        _, out = invoke("hypothesis", str(self.case), "--claim", "downstream timeout", "--test", "inspect span")
+        hid = json.loads(out)["id"]
+        trace_file = self.root / "otel-trace.json"
+        trace_file.write_text(json.dumps({
+            "trace_id": "0x123",
+            "spans": [
+                {"name": "checkout_handler", "status": {"status_code": "ERROR", "description": "DatabasePoolTimeout"}},
+                {"name": "fetch_user", "status": {"status_code": "OK"}}
+            ]
+        }), encoding="utf-8")
+        rc, out = invoke("trace", str(self.case), "--hypothesis", hid, "--file", str(trace_file))
+        self.assertEqual(0, rc)
+        ev = json.loads(out)
+        self.assertEqual("observation", ev["kind"])
+        self.assertEqual("supports", ev["effect"])
+        self.assertEqual(1, ev["trace_metadata"]["failing_count"])
+        self.assertEqual(64, len(ev["sha256"]))
+
+    def test_causal_link_dag_and_cycle_prevention(self):
+        _, out1 = invoke("hypothesis", str(self.case), "--claim", "buffer leak", "--test", "leak test")
+        h1 = json.loads(out1)["id"]
+        _, out2 = invoke("hypothesis", str(self.case), "--claim", "oom crash", "--test", "check oom")
+        h2 = json.loads(out2)["id"]
+        rc, out = invoke("link", str(self.case), "--parent", h1, "--child", h2, "--relation", "causes")
+        self.assertEqual(0, rc)
+        link = json.loads(out)
+        self.assertEqual(h1, link["parent"])
+        self.assertEqual(h2, link["child"])
+        # Cycle attempt: h2 -> h1 must fail
+        rc_cycle, _ = invoke("link", str(self.case), "--parent", h2, "--child", h1, "--relation", "causes")
+        self.assertEqual(2, rc_cycle)
+
+    def test_flake_analysis_calculates_failure_rate(self):
+        _, out = invoke("hypothesis", str(self.case), "--claim", "timing race", "--test", "stress test")
+        hid = json.loads(out)["id"]
+        rc, out = invoke("flake", str(self.case), "--hypothesis", hid, "--repeats", "4", "--allow-exec",
+                         "--", sys.executable, "-c", "import sys; sys.exit(0)")
+        self.assertEqual(0, rc)
+        result = json.loads(out)
+        self.assertEqual(0.0, result["empirical_failure_rate"])
+        self.assertEqual("ZERO_FAILURE", result["classification"])
+
 
 if __name__ == "__main__":
     unittest.main()
