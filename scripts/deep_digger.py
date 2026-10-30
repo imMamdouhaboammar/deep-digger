@@ -14,6 +14,7 @@ import json
 import math
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -841,6 +842,124 @@ def cmd_report(args) -> None:
                   f"source_sha256={evidence['sha256'] or 'not supplied'}")
 
 
+def render_terminal_dashboard(data: dict, no_color: bool = False) -> str:
+    def col(text: str, code: str) -> str:
+        return f"\033[{code}m{text}\033[0m" if not no_color else text
+
+    BOLD = "1"
+    CYAN = "1;36"
+    GREEN = "1;32"
+    YELLOW = "1;33"
+    RED = "1;31"
+    MAGENTA = "1;35"
+    BLUE = "1;34"
+    DIM = "2"
+
+    width = 76
+    lines = []
+
+    # Banner
+    lines.append(col("┌" + "─" * (width - 2) + "┐", CYAN))
+    title_str = "DEEP DIGGER · INCIDENT INVESTIGATION DOSSIER"
+    subtitle_str = "Catch That Bug · Evidence-Gated Root Cause & Falsification"
+    lines.append(col(f"│{title_str:^{width-2}}│", CYAN))
+    lines.append(col(f"│{subtitle_str:^{width-2}}│", DIM))
+    lines.append(col("└" + "─" * (width - 2) + "┘", CYAN))
+    lines.append("")
+
+    # Incident Overview
+    lines.append(col("  INCIDENT OVERVIEW", BOLD))
+    lines.append(f"  {col('Case ID:', DIM)}      {data.get('id', 'N/A')}")
+    lines.append(f"  {col('Title:', DIM)}        {col(data.get('title', 'N/A'), BOLD)}")
+    lines.append(f"  {col('Symptom:', DIM)}      {data.get('symptom', 'N/A')}")
+    lines.append(f"  {col('Created:', DIM)}      {data.get('created_at', 'N/A')}")
+    counts_str = f"{len(data.get('hypotheses', []))} Hypotheses  │  {len(data.get('experiments', []))} Experiments  │  {len(data.get('evidence', []))} Evidence Records"
+    lines.append(f"  {col('Metrics:', DIM)}      {col(counts_str, BLUE)}")
+    lines.append("")
+
+    # Hypotheses Matrix
+    lines.append(col("┌─ HYPOTHESES & CONFIDENCE MATRIX " + "─" * (width - 34) + "┐", BOLD))
+    hypotheses = data.get("hypotheses", [])
+    if not hypotheses:
+        lines.append(f"│ {col('No hypotheses registered yet.', DIM)}")
+    for idx, h in enumerate(hypotheses):
+        state = classify_case(data, h["id"])
+        status = state["status"]
+        status_col = GREEN if status == "experimental-pattern" else (YELLOW if status == "reproduced" else RED)
+        status_badge = col(f"[{status.upper()}]", status_col)
+
+        lines.append(f"│ {col(h['id'], BOLD)} {status_badge} {col(h['claim'], BOLD)}")
+        lines.append(f"│   {col('Test:', DIM)}        {h.get('discriminating_test', 'N/A')}")
+
+        reasons = state.get("missing_gates", []) + state.get("conflicts", [])
+        if not reasons:
+            lines.append(f"│   {col('Gates:', DIM)}       {col('✓ All causal gates satisfied (baseline, intervention, reversal, control)', GREEN)}")
+        else:
+            lines.append(f"│   {col('Missing:', DIM)}     {col(', '.join(reasons), YELLOW)}")
+
+        sup = state.get("supporting_evidence", [])
+        ref = state.get("refuting_evidence", [])
+        ev_summary = f"{len(sup)} Supporting ({', '.join(sup) if sup else 'none'})  │  {len(ref)} Refuting ({', '.join(ref) if ref else 'none'})"
+        lines.append(f"│   {col('Evidence:', DIM)}    {ev_summary}")
+        if idx < len(hypotheses) - 1:
+            lines.append("├" + "─" * (width - 2) + "┤")
+    lines.append("└" + "─" * (width - 2) + "┘")
+    lines.append("")
+
+    # Causal Dependency Graph
+    links = data.get("causal_links", [])
+    if links:
+        lines.append(col("┌─ CAUSAL DEPENDENCY GRAPH (DAG) " + "─" * (width - 33) + "┐", BOLD))
+        for l in links:
+            parent = l.get("parent", "")
+            child = l.get("child", "")
+            rel = l.get("relation", "causes")
+            arrow = f"─────({rel})────►"
+            lines.append(f"│  {col(parent, CYAN)} {col(arrow, MAGENTA)} {col(child, CYAN)}")
+        lines.append("└" + "─" * (width - 2) + "┘")
+        lines.append("")
+
+    # Evidence Ledger
+    evidence_list = data.get("evidence", [])
+    if evidence_list:
+        lines.append(col("┌─ EVIDENCE LEDGER " + "─" * (width - 19) + "┐", BOLD))
+        for ev in evidence_list:
+            sha = ev.get("sha256") or "N/A"
+            sha_short = sha[:8] + ".." if len(sha) > 8 else sha
+            effect_col = GREEN if ev.get("effect") == "supports" else (RED if ev.get("effect") == "refutes" else DIM)
+            effect_str = col(f"[{ev.get('effect', 'neutral').upper()}]", effect_col)
+            source_str = f" ({ev['source']})" if ev.get("source") else ""
+            lines.append(f"│ {col(ev.get('id', 'E-?'), BOLD)} {effect_str} {col(sha_short, BLUE)}{source_str}")
+            lines.append(f"│   {col('Note:', DIM)} {ev.get('note', '')}")
+        lines.append("└" + "─" * (width - 2) + "┘")
+        lines.append("")
+
+    # Recommended Next Action
+    lines.append(col("┌─ RECOMMENDED NEXT ACTION " + "─" * (width - 27) + "┐", YELLOW))
+    if not hypotheses:
+        lines.append(f"│ ▶ Register initial falsifiable hypotheses: {col('deep-digger hypothesis <folder> ...', CYAN)}")
+    else:
+        for h in hypotheses:
+            state = classify_case(data, h["id"])
+            if state.get("conflicts"):
+                action = f"Investigate contradictory evidence for {h['id']} before any causal assertion"
+            elif state.get("missing_gates"):
+                action = f"Execute safe discriminating experiment for {h['id']}: missing {state['missing_gates'][0]}"
+            else:
+                action = f"All verification gates met for {h['id']}; review confounders & alternatives"
+            lines.append(f"│ ▶ {col(h['id'], BOLD)}: {col(action, YELLOW)}")
+    lines.append("└" + "─" * (width - 2) + "┘")
+
+    return "\n".join(lines)
+
+
+def cmd_view(args) -> None:
+    data = read_case(args.folder)
+    no_color = getattr(args, "no_color", False) or bool(os.environ.get("NO_COLOR")) or not sys.stdout.isatty()
+    output = render_terminal_dashboard(data, no_color=no_color)
+    print(output)
+
+
 def cmd_next(args) -> None:
     """Prioritize missing/disputed verification; do not invent hypotheses."""
     data = read_case(args.folder)
@@ -893,24 +1012,31 @@ def cmd_minimize(args) -> None:
     argv = normalize_command(args.command)
     if not any("{input}" in item for item in argv):
         raise ValueError("command must include {input} placeholder")
-    # newline='' preserves line terminators on all platforms.
-    with input_path.open("r", encoding="utf-8", newline="") as stream:
-        lines = stream.readlines()
+    
+    granularity = getattr(args, "granularity", "lines")
+    if granularity == "tokens":
+        text = input_path.read_text(encoding="utf-8")
+        chunks = re.findall(r"\w+|\s+|[^\w\s]", text)
+    else:
+        # newline='' preserves line terminators on all platforms.
+        with input_path.open("r", encoding="utf-8", newline="") as stream:
+            chunks = stream.readlines()
     with tempfile.TemporaryDirectory(prefix="deep-digger-min-") as temporary:
         candidate_path = Path(temporary) / "candidate.txt"
 
         def oracle(candidate: list[str]) -> str:
             with candidate_path.open("w", encoding="utf-8", newline="") as stream:
-                stream.writelines(candidate)
+                stream.write("".join(candidate))
             invocation = [item.replace("{input}", str(candidate_path)) for item in argv]
             outcomes = [run_command(invocation, args.timeout)["verdict"] for _ in range(args.repeats)]
             return outcomes[0] if len(set(outcomes)) == 1 else "UNRESOLVED"
 
-        minimized, complete = ddmin(lines, oracle, args.max_tests)
+        minimized, complete = ddmin(chunks, oracle, args.max_tests)
     with output_path.open("x", encoding="utf-8", newline="") as stream:
-        stream.writelines(minimized)
-    print(json.dumps({"output": str(output_path), "original_lines": len(lines),
-                      "retained_lines": len(minimized), "one_minimal_verified": complete,
+        stream.write("".join(minimized))
+    print(json.dumps({"output": str(output_path), "original_units": len(chunks),
+                      "retained_units": len(minimized), "granularity": granularity,
+                      "one_minimal_verified": complete,
                       "meaning": "1-minimal only for the tested oracle, not global root cause"}))
 
 
@@ -939,6 +1065,10 @@ def build_parser() -> argparse.ArgumentParser:
     rep.add_argument("folder"); rep.add_argument("--json", action="store_true")
     rep.add_argument("--html", help="Path to generate standalone HTML report")
     rep.set_defaults(func=cmd_report)
+    view = sub.add_parser("view", help="Render interactive ANSI terminal dashboard for case ledger")
+    view.add_argument("folder")
+    view.add_argument("--no-color", action="store_true", help="Disable ANSI color codes")
+    view.set_defaults(func=cmd_view)
     nxt = sub.add_parser("next", help="Return next discriminating or verification step")
     nxt.add_argument("folder"); nxt.set_defaults(func=cmd_next)
     audit = sub.add_parser("audit", help="Check current source hashes against captured evidence")
@@ -957,6 +1087,7 @@ def build_parser() -> argparse.ArgumentParser:
     bis.set_defaults(func=cmd_bisect)
     mini = sub.add_parser("minimize", help="Reduce a stable failing text input using an oracle")
     mini.add_argument("--input", required=True); mini.add_argument("--output", required=True)
+    mini.add_argument("--granularity", choices=("lines", "tokens"), default="lines")
     mini.add_argument("--repeats", type=int, default=3); mini.add_argument("--max-tests", type=int, default=200)
     mini.add_argument("--timeout", type=float, default=15)
     mini.add_argument("--allow-exec", action="store_true")

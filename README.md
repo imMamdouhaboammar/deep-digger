@@ -158,13 +158,17 @@ deep-digger bisect cases/cache-corruption --hypothesis H1 \
 # 9. Generate isolated test harness reproducer (python, node, bash)
 deep-digger repro cases/cache-corruption --template python
 
-# 10. Delta-debug minimal failing payload
+# 10. Delta-debug minimal failing payload (lines or tokens)
 deep-digger minimize ./payload.json \
-  --oracle "python3 test_oracle.py" \
+  --granularity tokens \
   --output ./minimal.json \
-  --allow-exec
+  --allow-exec \
+  -- python3 test_oracle.py {input}
 
-# 11. Generate causal status report (text, json, or standalone HTML dossier)
+# 11. Interactive ANSI terminal dashboard view
+deep-digger view cases/cache-corruption
+
+# 12. Generate causal status report (text, json, or standalone HTML dossier)
 deep-digger report cases/cache-corruption --format text
 deep-digger report cases/cache-corruption --html cases/cache-corruption/dossier.html
 ```
@@ -193,12 +197,20 @@ Every release of Deep Digger undergoes multi-tier automated verification:
 # Verify system dependencies
 bun bin/cli.js doctor
 
-# Execute Python test suite (20 unit test cases)
+# Execute Python test suite (22 unit test cases)
 python3 -m unittest discover -s evals -p 'test_cli.py' -v
 
-# Execute Rust test suite (Unit & Integration)
+# Execute Rust test suite (12 unit & integration tests)
 cargo test --manifest-path rust/Cargo.toml
 ```
+
+---
+
+## 📚 Durable Engineering Solutions
+
+For in-depth architectural patterns and mathematical specifications, see:
+- [Evidence-Gated Root Cause Investigation Pattern](docs/solutions/evidence-gated-root-cause-investigation.md)
+- [Delta Debugging Invariants & Statistical Oracle Bounds](docs/solutions/delta-debugging-invariants.md)
 
 ---
 

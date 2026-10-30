@@ -41,6 +41,8 @@ The target state is an inspectable case packet with a reproducible failure signa
 - [Use deterministic tools](usecases/run-tools.md): Python case ledger, repeatable commands, delta debugging, trace analysis, causal DAG linking, flake estimation, and safety boundaries.
 - [J-Space Cognitive Architecture](references/jspace-investigation.md): Inner workspace reasoning, capacity limits, marker events, and calibrated confidence tags.
 - [Fault Localization & Architecture](references/recon-and-architecture.md): Reverse-engineered comparative analysis, mathematical foundations of delta minimization, and causal DAG formalism.
+- [Evidence-Gated RCA Pattern](docs/solutions/evidence-gated-root-cause-investigation.md): 4-phase causal quadruplet, cognitive bounds, and tamper-evident ledger integrity.
+- [Delta Debugging Invariants](docs/solutions/delta-debugging-invariants.md): Mathematical foundations, 1-minimality proofs, token vs line granularity, and statistical flake oracles.
 
 ### Dispatch by observed failure class
 

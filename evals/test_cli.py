@@ -231,6 +231,32 @@ class CliTests(unittest.TestCase):
         self.assertIn("Broken total", content)
         self.assertIn("<svg", content)
 
+    def test_view_command_terminal_dashboard(self):
+        _, out = invoke("hypothesis", str(self.case), "--claim", "token desync", "--test", "skew clock")
+        rc, view_out = invoke("view", str(self.case), "--no-color")
+        self.assertEqual(0, rc)
+        self.assertIn("DEEP DIGGER · INCIDENT INVESTIGATION DOSSIER", view_out)
+        self.assertIn("INCIDENT OVERVIEW", view_out)
+        self.assertIn("HYPOTHESES & CONFIDENCE MATRIX", view_out)
+        self.assertIn("token desync", view_out)
+        self.assertIn("RECOMMENDED NEXT ACTION", view_out)
+
+    def test_token_granularity_minimization(self):
+        failing_input = self.root / "subline_bug.txt"
+        minimized_output = self.root / "subline_min.txt"
+        failing_input.write_text("alpha beta BUG gamma delta", encoding="utf-8")
+        oracle = (f"import sys; "
+                  f"content = open(sys.argv[1]).read(); "
+                  f"sys.exit(1 if 'BUG' in content else 0)")
+        rc, out = invoke("minimize", "--input", str(failing_input), "--output", str(minimized_output),
+                         "--granularity", "tokens", "--allow-exec",
+                         "--", sys.executable, "-c", oracle, "{input}")
+        self.assertEqual(0, rc)
+        result = json.loads(out)
+        self.assertEqual("tokens", result["granularity"])
+        self.assertTrue(result["one_minimal_verified"])
+        self.assertEqual("BUG", minimized_output.read_text(encoding="utf-8"))
+
 
 if __name__ == "__main__":
     unittest.main()

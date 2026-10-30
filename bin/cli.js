@@ -10,7 +10,7 @@ const __dirname = dirname(__filename);
 const rootDir = join(__dirname, '..');
 const pythonScript = join(rootDir, 'scripts', 'deep_digger.py');
 
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 
 function showBanner() {
   console.log(`
@@ -30,15 +30,17 @@ Commands:
   flake <folder> --oracle <cmd> Statistical repetition oracle to compute empirical P(FAIL)
   bisect <folder> --oracle ...  Automated git bisect runner recorded into evidence ledger
   repro <folder> --template ... Generate isolated test harness fixture (python, node, bash)
-  minimize <input> --oracle ... Delta-debugging minimizer for failing inputs
+  minimize <input> --oracle ... Delta-debugging minimizer for failing inputs (lines or tokens)
   report <folder> [--html <f>]  Generate causal claim ladder report (text, json, or html)
+  view <folder> [--no-color]    Render interactive ANSI terminal dashboard for case ledger
   doctor                        Verify environment dependencies (Python, Cargo, Bun)
   version                       Show current version
 
 Examples:
   deep-digger init cases/auth-bug
   deep-digger hypothesis cases/auth-bug add H-token-expiry "Token expires prematurely on leap seconds"
-  deep-digger report cases/auth-bug --format text
+  deep-digger view cases/auth-bug
+  deep-digger report cases/auth-bug --html cases/auth-bug/report.html
   deep-digger doctor
 
 Universal Agent Integration:
